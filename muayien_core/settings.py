@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -8,7 +9,10 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-hqj-4p&zc@es0_*l-v2=z
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get("https://muayien.moxs.space", "https://muayien-frontend.vercel.app", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get(
+    "DJANGO_ALLOWED_HOSTS",
+    "localhost,127.0.0.1"
+).split(",")
 
 
 INSTALLED_APPS = [
@@ -63,7 +67,10 @@ DATABASES = {
 }
 '''
 
-if os.environ.get("POSTGRES_DB"):
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {"default": dj_database_url.config(default=os.environ.get("DATABASE_URL"), conn_max_age=600, ssl_require=True)}
+
+elif os.environ.get("POSTGRES_DB"):
     DATABASES = {
         "default": {
             "ENGINE":   "django.db.backends.postgresql",
@@ -130,12 +137,10 @@ SIMPLE_JWT = {
     'USER_ID_FIELD': 'user_id',
 }
 
-CORS_ALLOWED_ORIGINS = [
-    o.strip() for o in os.environ.get(
-        'https://muayien.moxs.space',
-        'https://muayien-frontend.vercel.app',
-        'http://localhost:5173,http://127.0.0.1:5173',
-    ).split(',') if o.strip()
-]
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173"
+).split(",")
+
 CORS_ALLOW_CREDENTIALS = True
 
