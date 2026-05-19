@@ -3,12 +3,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
- 
+from rest_framework.permissions import AllowAny
+from rest_framework.generics import ListAPIView
+from .serializers import RegisterSerializer, UserSerializer, ChatSerializer, MessageInputSerializer, MessageResponseSerializer
+from .ml import engine
 from .models import Chat, Message, Answer
-from .serializers import MessageInputSerializer, MessageResponseSerializer
  
- 
+'''
+This was used for backend testing, before the SGM model was added.
 def mock_sgm_model(text_input: str) -> dict:
     text_lower = text_input.lower()
  
@@ -28,7 +30,13 @@ def mock_sgm_model(text_input: str) -> dict:
         return {"intent": "Report_IT_Issue", "slot": "Access"}
  
     return {"intent": "Unknown", "slot": "None"}
- 
+ '''
+
+def run_sgm_model(text: str) -> dict:
+    result = engine.predict(text)
+    entities = result.get("entities") or {}
+    slot = next(iter(entities.values()), "Unknown") if entities else "Unknown"
+    return {"intent": result["intent"], "slot": slot, "entities": entities} 
  
 def build_system_reply(ai_result: dict) -> str:
     intent = ai_result.get("intent")
@@ -95,7 +103,7 @@ class MessageView(APIView):
  
         message = Message.objects.create(chat=chat, content=content)
  
-        ai_result = mock_sgm_model(content)
+        ai_result = run_sgm_model(content)
  
         reply_text = build_system_reply(ai_result)
  
@@ -159,3 +167,41 @@ class ClearHistoryView(APIView):
                 {"error": "Chat session not found or you do not have permission."},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user = serializer.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+class ChatListView(ListAPIView):
+    """GET /api/chats/  → list of current user's chats, newest first."""
+    serializer_class = ChatSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Chat.objects.filter(user=self.request.user).order_by("-start_time")
+
+
+class ChatMessagesView(APIView):
+    """GET /api/chat/<uuid>/messages/  → all messages (+ answers) in a chat."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, chat_id):
+        try:
+            chat = Chat.objects.get(chat_id=chat_id, user=request.user)
+        except Chat.DoesNotExist:
+            return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        messages = chat.messages.select_related("answer").order_by("timestamp")
+        data = MessageResponseSerializer(messages, many=True).data
+        return Response(data)
+
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)

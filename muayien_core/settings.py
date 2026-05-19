@@ -1,13 +1,14 @@
 from pathlib import Path
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = 'django-insecure-hqj-4p&zc@es0_*l-v2=zjlvt-=k&w2orok*qc64ddmhv0fsl2'
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-hqj-4p&zc@es0_*l-v2=zjlvt-=k&w2orok*qc64ddmhv0fsl2")
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 INSTALLED_APPS = [
@@ -17,11 +18,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'api',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -50,13 +53,34 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'muayien_core.wsgi.application'
 
-
+'''
+Was use for local testing ( SQLite )
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+'''
+
+DATABASES = {
+    "default": {
+        "ENGINE":   "django.db.backends.postgresql",
+        "NAME":     os.environ["POSTGRES_DB"],
+        "USER":     os.environ["POSTGRES_USER"],
+        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+        "HOST":     os.environ.get("POSTGRES_HOST", "localhost"),
+        "PORT":     os.environ.get("POSTGRES_PORT", "5432"),
+        "OPTIONS":  {"sslmode": "require"} if not DEBUG else {},
+    }
+}
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -97,3 +121,12 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'USER_ID_FIELD': 'user_id',
 }
+
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'CORS_ALLOWED_ORIGINS',
+        'http://localhost:5173,http://127.0.0.1:5173',
+    ).split(',') if o.strip()
+]
+CORS_ALLOW_CREDENTIALS = True
+

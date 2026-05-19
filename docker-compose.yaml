@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: muayien
+      POSTGRES_PASSWORD: muayien_dev_password
+      POSTGRES_DB: muayien
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # so you can connect from your host with psql/DBeaver
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U muayien -d muayien" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    environment:
+      DJANGO_SECRET_KEY: dev-not-a-real-secret-change-me
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      # Postgres
+      POSTGRES_DB: muayien
+      POSTGRES_USER: muayien
+      POSTGRES_PASSWORD: muayien_dev_password
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      # CORS: where the frontend is hosted
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Run migrations on every startup, then launch gunicorn. The `migrate` step
+    # is idempotent — it's safe to do this every time.
+    # NOTE: keep this on ONE line — YAML folded scalars don't play nicely with
+    # multi-line shell commands containing `&&`.
+    command: sh -c "python manage.py migrate && gunicorn muayien_core.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile - --error-logfile -"
+  # --- Optional: also run the frontend in compose ---
+  # Uncomment + adjust the build path to point at your frontend repo's folder.
+  #
+  # frontend:
+  #   build:
+  #     context: ../muayien-frontend
+  #     args:
+  #       VITE_API_URL: http://localhost:8000/api
+  #   ports:
+  #     - "5173:80"
+  #   depends_on:
+  #     - backend
+
+volumes:
+  pgdata:
