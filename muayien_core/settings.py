@@ -8,7 +8,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-hqj-4p&zc@es0_*l-v2=z
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("https://muayien.moxs.space", "https://muayien-frontend.vercel.app", "localhost,127.0.0.1").split(",")
 
 
 INSTALLED_APPS = [
@@ -63,17 +63,25 @@ DATABASES = {
 }
 '''
 
-DATABASES = {
-    "default": {
-        "ENGINE":   "django.db.backends.postgresql",
-        "NAME":     os.environ["POSTGRES_DB"],
-        "USER":     os.environ["POSTGRES_USER"],
-        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
-        "HOST":     os.environ.get("POSTGRES_HOST", "localhost"),
-        "PORT":     os.environ.get("POSTGRES_PORT", "5432"),
-        "OPTIONS":  {"sslmode": "require"} if not DEBUG else {},
+if os.environ.get("POSTGRES_DB"):
+    DATABASES = {
+        "default": {
+            "ENGINE":   "django.db.backends.postgresql",
+            "NAME":     os.environ["POSTGRES_DB"],
+            "USER":     os.environ["POSTGRES_USER"],
+            "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+            "HOST":     os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT":     os.environ.get("POSTGRES_PORT", "5432"),
+            "OPTIONS":  {"sslmode": "require"}, 
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
@@ -124,6 +132,7 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get(
+        'https://muayien.moxs.space',
         'https://muayien-frontend.vercel.app',
         'http://localhost:5173,http://127.0.0.1:5173',
     ).split(',') if o.strip()
