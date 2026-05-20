@@ -6,7 +6,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.generics import ListAPIView
 from .serializers import RegisterSerializer, UserSerializer, ChatSerializer, MessageInputSerializer, MessageResponseSerializer
-from .ml import engine
+try:
+    from .ml import engine
+except Exception as e:
+    print(f"[muayien] WARNING: SGM model unavailable ({e}). Using mock fallback.")
+    engine = None
 from .models import Chat, Message, Answer
  
 '''
@@ -31,13 +35,36 @@ def mock_sgm_model(text_input: str) -> dict:
  
     return {"intent": "Unknown", "slot": "None"}
  '''
-
+'''
 def run_sgm_model(text: str) -> dict:
     result = engine.predict(text)
     entities = result.get("entities") or {}
     slot = next(iter(entities.values()), "Unknown") if entities else "Unknown"
     return {"intent": result["intent"], "slot": slot, "entities": entities} 
- 
+ '''
+
+def run_sgm_model(text: str) -> dict:
+    if engine is not None:
+        result = engine.predict(text)
+        entities = result.get("entities") or {}
+        slot = next(iter(entities.values()), "Unknown") if entities else "Unknown"
+        return {"intent": result["intent"], "slot": slot, "entities": entities}
+
+    # Fallback mock - no ML files required
+    text_lower = text.lower()
+    if any(w in text_lower for w in ["vacation", "leave", "day off"]):
+        slot = "Unknown"
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            if day in text_lower:
+                slot = day.capitalize()
+                break
+        return {"intent": "Leave_Request", "slot": slot, "entities": {}}
+    if any(w in text_lower for w in ["laptop", "computer", "screen"]):
+        return {"intent": "Report_IT_Issue", "slot": "Hardware", "entities": {}}
+    if any(w in text_lower for w in ["password", "access", "login"]):
+        return {"intent": "Report_IT_Issue", "slot": "Access", "entities": {}}
+    return {"intent": "Unknown", "slot": "None", "entities": {}}
+
 def build_system_reply(ai_result: dict) -> str:
     intent = ai_result.get("intent")
     slot   = ai_result.get("slot")
